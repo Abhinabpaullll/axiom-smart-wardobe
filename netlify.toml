@@ -1,0 +1,56 @@
+# ============================================================
+# Axiom Smart Wardrobe — Netlify Deployment Configuration
+# Next.js 16 (App Router) · Edge API Routes · OpenNext adapter
+# ============================================================
+
+[build]
+  command   = "npm run build"
+  publish   = ".next"
+
+  [build.environment]
+    # Pin Node.js to a version compatible with Next.js 16
+    NODE_VERSION = "20"
+    # Ensures next/font works during CI (no outbound font fetch needed at runtime)
+    NEXT_TELEMETRY_DISABLED = "1"
+
+# ---------------------------------------------------------------------------
+# Production context — add your real secrets here or, preferably, set them
+# in the Netlify UI under Site → Environment Variables (they won't be committed).
+# ---------------------------------------------------------------------------
+[context.production.environment]
+  NODE_ENV = "production"
+  # NEXT_PUBLIC_SITE_URL = "https://your-site.netlify.app"
+
+# ---------------------------------------------------------------------------
+# Redirects
+# The Netlify Next.js adapter handles routing automatically, but we add
+# an explicit SPA-style catch-all so direct URL loads work correctly even
+# without the adapter loading first.
+# ---------------------------------------------------------------------------
+[[redirects]]
+  from   = "/api/*"
+  to     = "/api/:splat"
+  status = 200
+
+[[redirects]]
+  from   = "/*"
+  to     = "/index.html"
+  status = 200
+
+# ---------------------------------------------------------------------------
+# Security Headers — applied to every response
+# ---------------------------------------------------------------------------
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options           = "DENY"
+    X-Content-Type-Options    = "nosniff"
+    Referrer-Policy           = "strict-origin-when-cross-origin"
+    Permissions-Policy        = "camera=(), microphone=(), geolocation=()"
+    Strict-Transport-Security = "max-age=63072000; includeSubDomains; preload"
+
+# Cache immutable Next.js static assets aggressively
+[[headers]]
+  for = "/_next/static/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
