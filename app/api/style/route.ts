@@ -5,52 +5,58 @@ import wardrobeData from "@/data/wardrobe.json";
 
 export const runtime = "edge";
 
-const MOCK_WEATHER = 18; // °C — simulated sensor reading
+const DEFAULT_WEATHER = 18;
 
-function recommend(formality: string, history: string[]) {
+function processRecommendation(formality: string, history: string[], temperature: number = DEFAULT_WEATHER) {
   const wardrobe = wardrobeData as WardrobeItem[];
-  const outfit = generateOutfit(wardrobe, formality, MOCK_WEATHER, history);
+  const result = generateOutfit(wardrobe, formality, temperature, history);
 
-  if (!outfit) {
+  if (!result) {
     return NextResponse.json(
       {
-        error: "No valid outfit found. Try a different formality or clear history.",
-        weather: MOCK_WEATHER,
-        timestamp: Date.now(),
+        error: "Chamber configuration could not generate an outfit matching these criteria.",
+        temperature,
+        formality,
+        timestamp: new Date().toISOString(),
       },
       { status: 404 }
     );
   }
 
   return NextResponse.json({
-    outfit,
-    weather: MOCK_WEATHER,
-    formality,
-    timestamp: Date.now(),
+    ...result,
+    projectRef: "11456649540610009134",
+    rfidActiveCount: wardrobe.filter((w) => w.status === "CHAMBER 01").length,
+    timestamp: new Date().toISOString(),
   });
 }
 
-/** GET /api/style?formality=smart-casual&history=top-01,bot-02 */
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const formality = searchParams.get("formality") || "smart-casual";
+  const tempParam = searchParams.get("temperature") || searchParams.get("temp");
+  const temperature = tempParam ? parseFloat(tempParam) : DEFAULT_WEATHER;
   const historyRaw = searchParams.get("history") || "";
-  const history = historyRaw ? historyRaw.split(",").map((s) => s.trim()) : [];
-  return recommend(formality, history);
+  const history = historyRaw ? historyRaw.split(",").map((s) => s.trim()).filter(Boolean) : [];
+  return processRecommendation(formality, history, temperature);
 }
 
-/** POST /api/style { formality, history } */
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { formality = "smart-casual", history = [] } = body as {
-      formality: string;
-      history: string[];
+    const {
+      formality = "smart-casual",
+      history = [],
+      temperature = DEFAULT_WEATHER,
+    } = body as {
+      formality?: string;
+      history?: string[];
+      temperature?: number;
     };
-    return recommend(formality, history);
+    return processRecommendation(formality, history, temperature);
   } catch {
     return NextResponse.json(
-      { error: "Invalid request body" },
+      { error: "Invalid request payload format." },
       { status: 400 }
     );
   }

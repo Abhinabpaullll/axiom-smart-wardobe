@@ -1,106 +1,183 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { motion } from "framer-motion";
-import { Cpu } from "lucide-react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { motion, AnimatePresence } from "framer-motion";
+import { Cpu, Menu, X, ArrowUpRight } from "lucide-react";
+import { useLenis } from "@/components/SmoothScrollProvider";
 
-const NAV_ITEMS = [
-  { id: "hero", label: "Home" },
-  { id: "hardware", label: "Hardware" },
-  { id: "command", label: "Command" },
-  { id: "mirror", label: "Mirror" },
-  { id: "specs", label: "Specs" },
-] as const;
+interface NavItem {
+  label: string;
+  href: string;
+  isHash?: boolean;
+}
+
+const NAV_ITEMS: NavItem[] = [
+  { label: "ABOUT", href: "/#about", isHash: true },
+  { label: "INVENTORY", href: "/inventory" },
+  { label: "ARCHIVE", href: "/archive" },
+  { label: "LAB", href: "/lab" },
+];
 
 export default function Navigation() {
-  const [active, setActive] = useState("hero");
+  const pathname = usePathname();
   const [scrolled, setScrolled] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const lenis = useLenis();
 
   useEffect(() => {
-    const onScroll = () => {
-      setScrolled(window.scrollY > 40);
-
-      // Determine active section
-      const sections = NAV_ITEMS.map((n) => document.getElementById(n.id));
-      for (let i = sections.length - 1; i >= 0; i--) {
-        const el = sections[i];
-        if (el && el.getBoundingClientRect().top <= 120) {
-          setActive(NAV_ITEMS[i].id);
-          break;
-        }
-      }
+    const handleScroll = () => {
+      setScrolled(window.scrollY > 20);
     };
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  const scrollTo = (id: string) => {
-    document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
+  const handleNavClick = (item: NavItem) => {
+    setMobileMenuOpen(false);
+    if (item.isHash && pathname === "/") {
+      const targetId = item.href.replace("/#", "");
+      const elem = document.getElementById(targetId);
+      if (elem && lenis) {
+        lenis.scrollTo(elem, { offset: 0 });
+      }
+    }
   };
 
   return (
-    <motion.nav
-      initial={{ y: -20, opacity: 0 }}
-      animate={{ y: 0, opacity: 1 }}
-      transition={{ duration: 0.6, ease: [0.19, 1, 0.22, 1] }}
+    <header
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
         scrolled
-          ? "bg-surface-low/80 backdrop-blur-xl"
-          : "bg-transparent"
+          ? "bg-[#0A0A0A]/90 backdrop-blur-xl border-b border-white/10 shadow-2xl"
+          : "bg-transparent backdrop-blur-sm border-b border-white/[0.04]"
       }`}
-      style={{
-        borderBottom: scrolled ? "1px solid rgba(212, 175, 55, 0.1)" : "none",
-      }}
     >
-      <div className="max-w-6xl mx-auto px-6 sm:px-12 py-4 flex items-center justify-between">
-        {/* Logo */}
-        <button
-          onClick={() => scrollTo("hero")}
-          className="flex items-center gap-2.5 group"
-        >
-          <Cpu size={18} strokeWidth={1.5} className="text-amber" />
-          <span className="text-xs font-semibold tracking-[0.1em] uppercase text-text-primary group-hover:text-amber transition-colors duration-200">
-            Axiom
-          </span>
-        </button>
 
-        {/* Nav links */}
-        <div className="hidden sm:flex items-center gap-8">
-          {NAV_ITEMS.map((item) => (
-            <button
-              key={item.id}
-              onClick={() => scrollTo(item.id)}
-              className={`relative text-[10px] font-medium tracking-[0.2em] uppercase transition-colors duration-200 ${
-                active === item.id
-                  ? "text-amber"
-                  : "text-text-muted hover:text-text-primary"
-              }`}
-            >
-              {item.label}
-              {active === item.id && (
-                <motion.div
-                  layoutId="nav-indicator"
-                  className="absolute -bottom-1 left-0 right-0 h-[1px] bg-amber"
-                  transition={{ duration: 0.3 }}
+      {/* 2. ARCHITECTURAL NAVIGATION ROW */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-8 py-3 flex items-center justify-between">
+        {/* Left: Brand Identity */}
+        <Link href="/" className="flex items-center gap-3 group">
+          <div className="relative w-8 h-8 flex items-center justify-center bg-surface-mid border border-amber/30 group-hover:border-amber transition-colors duration-200">
+            <Cpu size={16} strokeWidth={1.5} className="text-amber" />
+            <div className="absolute top-0 left-0 w-1.5 h-1.5 bg-amber" />
+            <div className="absolute bottom-0 right-0 w-1.5 h-1.5 bg-amber" />
+          </div>
+          <div className="flex flex-col leading-tight">
+            <span className="text-xs font-semibold tracking-[0.2em] uppercase text-text-primary group-hover:text-amber transition-colors duration-200">
+              AXIOM
+            </span>
+            <span className="font-mono text-[8px] tracking-[0.25em] uppercase text-text-muted">
+              SMART WARDROBE
+            </span>
+          </div>
+        </Link>
+
+        {/* Center: Navigation Links */}
+        <nav className="hidden lg:flex items-center gap-1">
+          {NAV_ITEMS.map((item) => {
+            const isActive =
+              !item.isHash && (pathname === item.href || pathname.startsWith(item.href + "/"));
+
+            return (
+              <Link
+                key={item.label}
+                href={item.href}
+                onClick={() => handleNavClick(item)}
+                className={`relative px-4 py-2 font-mono text-[10px] tracking-[0.22em] uppercase transition-all duration-200 group flex items-center ${
+                  isActive
+                    ? "text-amber font-semibold"
+                    : "text-text-secondary hover:text-text-primary"
+                }`}
+              >
+                <span>{item.label}</span>
+                {/* Understated gold bottom line on hover/active (150-250ms) */}
+                <span
+                  className={`absolute bottom-0 left-4 right-4 h-[1px] bg-amber transition-transform duration-200 origin-left ${
+                    isActive ? "scale-x-100" : "scale-x-0 group-hover:scale-x-100"
+                  }`}
                 />
-              )}
-            </button>
-          ))}
+              </Link>
+            );
+          })}
+        </nav>
+
+        {/* Right: Enter Chamber CTA Button */}
+        <div className="hidden sm:flex items-center gap-3">
+          <Link
+            href="/dashboard"
+            className="group relative inline-flex items-center gap-2 px-5 py-2.5 bg-black border border-amber/50 hover:border-amber text-text-primary hover:text-amber font-mono text-[10px] tracking-[0.18em] uppercase transition-all duration-200 hover:bg-amber/10"
+          >
+            <span>ENTER CHAMBER</span>
+            <span className="text-amber group-hover:translate-x-1 transition-transform duration-200">
+              →
+            </span>
+            <div className="absolute top-0 right-0 w-1.5 h-1.5 bg-amber opacity-0 group-hover:opacity-100 transition-opacity" />
+          </Link>
         </div>
 
-        {/* Mobile: minimal indicator */}
-        <div className="sm:hidden flex items-center gap-1.5">
-          {NAV_ITEMS.map((item) => (
-            <button
-              key={item.id}
-              onClick={() => scrollTo(item.id)}
-              className={`w-1.5 h-1.5 transition-colors duration-200 ${
-                active === item.id ? "bg-amber" : "bg-outline"
-              }`}
-            />
-          ))}
-        </div>
+        {/* Mobile menu toggle */}
+        <button
+          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+          className="lg:hidden p-2 text-text-primary hover:text-amber border border-white/10 transition-colors"
+          aria-label="Toggle navigation menu"
+        >
+          {mobileMenuOpen ? <X size={18} /> : <Menu size={18} />}
+        </button>
       </div>
-    </motion.nav>
+
+      {/* Mobile Drawer */}
+      <AnimatePresence>
+        {mobileMenuOpen && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.25, ease: "easeInOut" }}
+            className="lg:hidden bg-[#0C0C0C] border-b border-amber/20 px-6 py-6 flex flex-col gap-4 overflow-hidden"
+          >
+            <div className="font-mono text-[8.5px] tracking-[0.25em] uppercase text-text-muted pb-2 border-b border-white/10 flex items-center justify-between">
+              <span>SYSTEM NAVIGATION</span>
+              <span className="text-amber">[ PUBLIC INTERFACE ]</span>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              {NAV_ITEMS.map((item) => {
+                const isActive =
+                  !item.isHash &&
+                  (pathname === item.href || pathname.startsWith(item.href + "/"));
+
+                return (
+                  <Link
+                    key={item.label}
+                    href={item.href}
+                    onClick={() => handleNavClick(item)}
+                    className={`flex items-center justify-between px-3.5 py-2.5 border ${
+                      isActive
+                        ? "border-amber/40 bg-amber/10 text-amber font-semibold"
+                        : "border-white/5 bg-surface-low text-text-secondary hover:text-text-primary"
+                    } font-mono text-xs tracking-[0.16em] uppercase transition-colors`}
+                  >
+                    <span>{item.label}</span>
+                    <ArrowUpRight size={12} className="text-text-muted" />
+                  </Link>
+                );
+              })}
+            </div>
+
+            <div className="pt-2">
+              <Link
+                href="/dashboard"
+                onClick={() => setMobileMenuOpen(false)}
+                className="w-full flex items-center justify-center gap-2 py-3 bg-amber text-black font-mono text-xs font-bold tracking-[0.2em] uppercase hover:bg-amber-dim transition-colors"
+              >
+                <span>ENTER THE CHAMBER</span>
+                <span>→</span>
+              </Link>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </header>
   );
 }

@@ -2,22 +2,22 @@
 
 /* ── Machined Monolith Design Tokens ── */
 :root {
-  --background: #0e0e0e;
-  --surface: #0e0e0e;
-  --surface-low: #131313;
-  --surface-mid: #191a1a;
-  --surface-high: #1f2020;
-  --surface-highest: #252626;
-  --surface-bright: #2c2c2c;
-  --amber: #d4af37;
-  --amber-dim: #b8962e;
-  --amber-glow: rgba(212, 175, 55, 0.08);
-  --text-primary: #e7e5e4;
-  --text-secondary: #acabaa;
-  --text-muted: #767575;
-  --outline: #484848;
-  --foreground: #e7e5e4;
-  --error: #ed7f64;
+  --background: #0A0A0A;
+  --surface: #0E0E0E;
+  --surface-low: #121212;
+  --surface-mid: #181919;
+  --surface-high: #1F2020;
+  --surface-highest: #262727;
+  --surface-bright: #2E2F2F;
+  --amber: #D4AF37;
+  --amber-dim: #B8962E;
+  --amber-glow: rgba(212, 175, 55, 0.12);
+  --text-primary: #E7E5E4;
+  --text-secondary: #A8A7A5;
+  --text-muted: #6E6D6D;
+  --outline: #383838;
+  --foreground: #E7E5E4;
+  --error: #ED7F64;
 }
 
 @theme inline {
@@ -37,7 +37,8 @@
   --color-text-muted: var(--text-muted);
   --color-outline: var(--outline);
   --color-error: var(--error);
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-inter), "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: var(--font-mono), "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }
 
 /* ── Base ── */
@@ -48,7 +49,8 @@
 html {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  scroll-behavior: smooth;
+  background-color: #0A0A0A;
+  width: 100%;
 }
 
 body {
@@ -56,38 +58,57 @@ body {
   color: var(--foreground);
   font-family: var(--font-sans);
   min-height: 100dvh;
+  width: 100%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 ::selection {
   background: var(--amber);
-  color: var(--background);
+  color: #000000;
 }
 
-/* ── Scrollbar (Machined) ── */
+/* ── Hide scrollbar for clean carousels ── */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* ── Machined Monolith Scrollbar ── */
 ::-webkit-scrollbar {
-  width: 6px;
+  width: 5px;
+  height: 5px;
 }
 ::-webkit-scrollbar-track {
-  background: var(--surface-low);
+  background: #0A0A0A;
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--outline);
+  background: #262626;
   border-radius: 0;
 }
 ::-webkit-scrollbar-thumb:hover {
   background: var(--amber-dim);
 }
 
-/* ── RFID Scan Line Animation ── */
+/* ── RFID Laser Scan Line Animation ── */
 @keyframes rfid-scan {
   0% {
     top: 0%;
     opacity: 0;
   }
-  5% {
+  10% {
     opacity: 1;
   }
-  95% {
+  90% {
     opacity: 1;
   }
   100% {
@@ -98,41 +119,30 @@ body {
 
 @keyframes rfid-pulse {
   0%, 100% {
-    box-shadow: 0 0 8px 2px rgba(212, 175, 55, 0.3);
+    box-shadow: 0 0 10px 2px rgba(212, 175, 55, 0.35);
   }
   50% {
-    box-shadow: 0 0 20px 6px rgba(212, 175, 55, 0.6);
-  }
-}
-
-@keyframes fade-grid {
-  0% {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-  100% {
-    opacity: 1;
-    transform: translateY(0);
+    box-shadow: 0 0 24px 8px rgba(212, 175, 55, 0.7);
   }
 }
 
 .rfid-line {
-  animation: rfid-scan 1s ease-in-out forwards, rfid-pulse 0.4s ease-in-out 3;
+  animation: rfid-scan 1s ease-in-out forwards, rfid-pulse 0.35s ease-in-out 3;
 }
 
 /* ── Biometric Scan Animations ── */
 @keyframes biometric-h {
   0% { top: -2px; opacity: 0; }
   5% { opacity: 1; }
-  50% { opacity: 0.8; }
+  50% { opacity: 0.9; }
   95% { opacity: 1; }
   100% { top: 100%; opacity: 0; }
 }
 
 @keyframes biometric-h-reverse {
   0% { bottom: -2px; top: auto; opacity: 0; }
-  5% { opacity: 0.6; }
-  95% { opacity: 0.6; }
+  5% { opacity: 0.7; }
+  95% { opacity: 0.7; }
   100% { bottom: 100%; top: auto; opacity: 0; }
 }
 
@@ -145,25 +155,25 @@ body {
 
 @keyframes biometric-grid-in {
   0% { opacity: 0; }
-  50% { opacity: 0; }
-  100% { opacity: 0.12; }
+  40% { opacity: 0; }
+  100% { opacity: 0.16; }
 }
 
 @keyframes biometric-border {
-  0%, 100% { box-shadow: inset 0 0 8px 1px rgba(212, 175, 55, 0.15); }
-  50% { box-shadow: inset 0 0 24px 4px rgba(212, 175, 55, 0.35); }
+  0%, 100% { box-shadow: inset 0 0 10px 2px rgba(212, 175, 55, 0.2); }
+  50% { box-shadow: inset 0 0 30px 6px rgba(212, 175, 55, 0.45); }
 }
 
 .biometric-line-h {
-  animation: biometric-h 1.8s ease-in-out forwards;
+  animation: biometric-h 2s ease-in-out forwards;
 }
 
 .biometric-line-h2 {
-  animation: biometric-h-reverse 1.5s ease-in-out 0.25s forwards;
+  animation: biometric-h-reverse 1.7s ease-in-out 0.2s forwards;
 }
 
 .biometric-line-v {
-  animation: biometric-v 1.4s ease-in-out 0.15s forwards;
+  animation: biometric-v 1.5s ease-in-out 0.1s forwards;
 }
 
 .biometric-grid {
@@ -171,22 +181,17 @@ body {
 }
 
 .biometric-border-pulse {
-  animation: biometric-border 0.6s ease-in-out 3;
+  animation: biometric-border 0.65s ease-in-out 3;
 }
 
-/* ── Glassmorphic Panel ── */
+/* ── Glassmorphic Machined Panels ── */
 .glass-panel {
-  background: rgba(25, 26, 26, 0.6);
+  background: rgba(18, 18, 18, 0.75);
   backdrop-filter: blur(40px);
   -webkit-backdrop-filter: blur(40px);
   border: 1px solid rgba(212, 175, 55, 0.15);
 }
 
-/* ── Utility ── */
 .tracking-tight {
   letter-spacing: -0.04em;
-}
-
-.text-balance {
-  text-wrap: balance;
 }

@@ -6,7 +6,8 @@ import Image from "next/image";
 
 export default function HeroSection() {
   const scrollToCommand = () => {
-    document.getElementById("command")?.scrollIntoView({ behavior: "smooth" });
+    const el = document.getElementById("command");
+    if (el) window.scrollTo({ top: el.offsetTop });
   };
 
   return (

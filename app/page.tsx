@@ -1,52 +1,40 @@
 "use client";
 
-import Navigation from "@/components/Navigation";
-import HeroSection from "@/components/HeroSection";
-import HardwareTech from "@/components/HardwareTech";
-import CommandCenter from "@/components/CommandCenter";
-import VirtualMirror from "@/components/VirtualMirror";
-import SpecsSection from "@/components/SpecsSection";
-import { Cpu } from "lucide-react";
+import HeroScrollExperience from "@/components/HeroScrollExperience";
+import PhysicalSystemSection from "@/components/PhysicalSystemSection";
+import DigitalInventorySection from "@/components/DigitalInventorySection";
+import IntelligenceSection from "@/components/IntelligenceSection";
+import ArchiveStorySection from "@/components/ArchiveStorySection";
+import VirtualTryOnSection from "@/components/VirtualTryOnSection";
+import FinalChamberCTA from "@/components/FinalChamberCTA";
+import AxiomFooter from "@/components/AxiomFooter";
 
-export default function Home() {
+export default function HomePage() {
   return (
-    <>
-      <Navigation />
+    <main className="relative flex flex-col min-h-screen bg-[#080808] text-[#F5F5F7] selection:bg-amber selection:text-black">
+      {/* 1. CINEMATIC HERO — scroll-driven chamber opening */}
+      <HeroScrollExperience />
 
-      <main>
-        {/* Section 1: Hero */}
-        <HeroSection />
+      {/* 2. SECTION 01: THE PHYSICAL SYSTEM */}
+      <PhysicalSystemSection />
 
-        {/* Section 2: Hardware Tech */}
-        <HardwareTech />
+      {/* 3. SECTION 02: THE DIGITAL INVENTORY */}
+      <DigitalInventorySection />
 
-        {/* Section 3: Command Center (Dashboard) */}
-        <CommandCenter />
+      {/* 4. SECTION 03: THE INTELLIGENCE LAYER */}
+      <IntelligenceSection />
 
-        {/* Section 4: Virtual Mirror */}
-        <VirtualMirror />
+      {/* 5. SECTION 04: THE SARTORIAL ARCHIVE */}
+      <ArchiveStorySection />
 
-        {/* Section 5: Specs */}
-        <SpecsSection />
-      </main>
+      {/* 6. SECTION 05: VIRTUAL TRY-ON LAB */}
+      <VirtualTryOnSection />
 
-      {/* ── Footer ── */}
-      <footer className="w-full bg-surface-low">
-        <div className="max-w-6xl mx-auto px-6 sm:px-12 py-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2.5">
-            <Cpu size={14} strokeWidth={1.5} className="text-amber/50" />
-            <span className="text-[9px] tracking-[0.15em] uppercase text-text-muted/50">
-              Axiom Systems v1.0
-            </span>
-          </div>
-          <span className="text-[9px] tracking-[0.15em] uppercase text-text-muted/50">
-            20 Garments · RFID Active · Aerospace Aluminum
-          </span>
-          <span className="text-[9px] tracking-[0.15em] uppercase text-text-muted/30">
-            © 2026 Axiom
-          </span>
-        </div>
-      </footer>
-    </>
+      {/* 7. SECTION 06: FINAL ENTER CHAMBER CTA */}
+      <FinalChamberCTA />
+
+      {/* 8. SECTION 07: MINIMAL INDUSTRIAL FOOTER */}
+      <AxiomFooter />
+    </main>
   );
 }

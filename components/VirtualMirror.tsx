@@ -42,7 +42,8 @@ export default function VirtualMirror() {
   useEffect(() => {
     try {
       const raw = localStorage.getItem(LOOKBOOK_KEY);
-      if (raw) setLookbookCount(JSON.parse(raw).length);
+      const count = raw ? (JSON.parse(raw) as unknown[]).length : 0;
+      setLookbookCount(count);
     } catch { /* silent */ }
   }, []);
 

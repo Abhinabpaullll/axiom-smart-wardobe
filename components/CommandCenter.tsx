@@ -1,29 +1,36 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   Thermometer,
   Zap,
   RotateCcw,
   ChevronDown,
   ScanLine,
-  Monitor,
+  ShieldCheck,
+  CheckCircle2,
+  Clock,
+  Radio,
 } from "lucide-react";
 import RFIDOverlay from "@/components/RFIDOverlay";
 import WardrobeGrid from "@/components/WardrobeGrid";
-import type { Outfit } from "@/lib/engine";
+import ModelPreviewPanel from "@/components/ModelPreviewPanel";
+import type { Outfit, RecommendationResult } from "@/lib/engine";
 
 const FORMALITY_OPTIONS = ["casual", "smart-casual", "formal"] as const;
 const HISTORY_KEY = "axiom-wear-history";
-const SCAN_DURATION = 1200;
+const SCAN_DURATION = 1000; // 1s laser scan animation
 
-interface HistoryEntry {
+export interface HistoryEntry {
   ids: string[];
   date: string;
+  outfit?: Outfit;
+  formality?: string;
+  temperature?: number;
 }
 
-function getHistory(): string[] {
+export function getHistory(): string[] {
   if (typeof window === "undefined") return [];
   try {
     const raw = localStorage.getItem(HISTORY_KEY);
@@ -38,16 +45,19 @@ function getHistory(): string[] {
   }
 }
 
-function saveToHistory(outfit: Outfit) {
+export function saveToHistory(outfit: Outfit, formality: string, temperature: number) {
   if (typeof window === "undefined") return;
   try {
     const raw = localStorage.getItem(HISTORY_KEY);
     const entries: HistoryEntry[] = raw ? JSON.parse(raw) : [];
-    entries.push({
+    entries.unshift({
       ids: [outfit.top.id, outfit.bottom.id, outfit.shoes.id, outfit.accessory.id],
       date: new Date().toISOString(),
+      outfit,
+      formality,
+      temperature,
     });
-    localStorage.setItem(HISTORY_KEY, JSON.stringify(entries.slice(-10)));
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(entries.slice(0, 30)));
   } catch {
     // silent
   }
@@ -55,43 +65,75 @@ function saveToHistory(outfit: Outfit) {
 
 export default function CommandCenter() {
   const [formality, setFormality] = useState<string>("smart-casual");
+  const [temperature, setTemperature] = useState<number>(18);
   const [outfit, setOutfit] = useState<Outfit | null>(null);
   const [outfitKey, setOutfitKey] = useState(0);
   const [isScanning, setIsScanning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [hasGenerated, setHasGenerated] = useState(false);
+  const [latency, setLatency] = useState<number | null>(null);
+  const [loggedToday, setLoggedToday] = useState(false);
+  const [recentCount, setRecentCount] = useState(0);
+
+  const updateHistoryCount = useCallback(() => {
+    setRecentCount(getHistory().length);
+  }, []);
+
+  useEffect(() => { updateHistoryCount(); }, [updateHistoryCount]);
 
   const generate = useCallback(async () => {
     setError(null);
     setIsScanning(true);
+    setLoggedToday(false);
     const history = getHistory();
-    const fetchPromise = fetch("/api/style", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ formality, history }),
-    });
-    const timerPromise = new Promise((r) => setTimeout(r, SCAN_DURATION));
-    const [res] = await Promise.all([fetchPromise, timerPromise]);
-    setIsScanning(false);
-    if (!res.ok) {
-      const data = await res.json();
-      setError(data.error || "Generation failed");
-      return;
+
+    const t0 = performance.now();
+    try {
+      const fetchPromise = fetch(
+        `/api/recommend?temperature=${temperature}&formality=${formality}&history=${history.join(",")}`
+      );
+      const timerPromise = new Promise((r) => setTimeout(r, SCAN_DURATION));
+
+      const [res] = await Promise.all([fetchPromise, timerPromise]);
+      const t1 = performance.now();
+      setIsScanning(false);
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setError(data.error || "Chamber synthesis failed. Please reset history or adjust temperature.");
+        return;
+      }
+
+      const data: RecommendationResult = await res.json();
+      setOutfit(data.outfit);
+      setOutfitKey((k) => k + 1);
+      setHasGenerated(true);
+      setLatency(data.executionTimeMs || Number((t1 - t0 - SCAN_DURATION).toFixed(1)));
+    } catch (err: unknown) {
+      setIsScanning(false);
+      const msg = err instanceof Error ? err.message : "Chamber synthesis failed. Network or server error.";
+      setError(msg);
     }
-    const data = await res.json();
-    setOutfit(data.outfit);
-    setOutfitKey((k) => k + 1);
-    setHasGenerated(true);
-    saveToHistory(data.outfit);
-  }, [formality]);
+  }, [formality, temperature]);
+
+  const handleLogWear = useCallback(() => {
+    if (!outfit) return;
+    saveToHistory(outfit, formality, temperature);
+    setLoggedToday(true);
+    updateHistoryCount();
+  }, [outfit, formality, temperature, updateHistoryCount]);
 
   const clearHistory = useCallback(() => {
-    localStorage.removeItem(HISTORY_KEY);
+    if (typeof window !== "undefined") {
+      localStorage.removeItem(HISTORY_KEY);
+    }
     setOutfit(null);
     setHasGenerated(false);
     setError(null);
-  }, []);
+    setLoggedToday(false);
+    updateHistoryCount();
+  }, [updateHistoryCount]);
 
   useEffect(() => {
     if (!dropdownOpen) return;
@@ -101,37 +143,37 @@ export default function CommandCenter() {
   }, [dropdownOpen]);
 
   return (
-    <section id="command" className="relative py-24 sm:py-32">
+    <section id="command-center-section" className="relative py-16 sm:py-24">
+      {/* 1s Vertical Laser Scan Overlay */}
       <RFIDOverlay isScanning={isScanning} />
 
-      <div className="max-w-6xl mx-auto px-6 sm:px-12">
+      <div className="max-w-6xl mx-auto px-4 sm:px-8">
         {/* Section header */}
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-80px" }}
           transition={{ duration: 0.7 }}
-          className="flex flex-col gap-4 mb-12 sm:mb-16"
+          className="flex flex-col gap-3 mb-10"
         >
           <div className="flex items-center gap-3">
             <div className="w-8 h-[1px] bg-amber" />
-            <span className="text-[10px] font-medium tracking-[0.25em] uppercase text-amber">
-              Interactive
+            <span className="font-mono text-[10px] font-medium tracking-[0.25em] uppercase text-amber">
+              CHAMBER COMMAND CONSOLE
             </span>
           </div>
           <h2
-            className="text-3xl sm:text-4xl font-semibold text-text-primary"
-            style={{ letterSpacing: "-0.03em" }}
+            className="text-3xl sm:text-4xl font-semibold text-text-primary tracking-tight"
           >
-            The Command Center
+            Outfit Synthesis Engine
           </h2>
-          <p className="text-sm text-text-secondary max-w-lg" style={{ lineHeight: 1.7 }}>
-            Experience the Axiom styling engine. Select a formality level,
-            generate an outfit, and watch the RFID array resolve your look in real-time.
+          <p className="text-sm text-text-secondary max-w-2xl leading-relaxed">
+            Direct interface to the 13.56 MHz RFID sensor array. Calculates weather density,
+            enforces the 72-hour non-repeat buffer, and dispenses a harmonized 4-piece look in under 50 milliseconds.
           </p>
         </motion.div>
 
-        {/* Glass panel container */}
+        {/* Machined Glass Console */}
         <motion.div
           initial={{ opacity: 0, y: 24 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -139,49 +181,46 @@ export default function CommandCenter() {
           transition={{ duration: 0.8, ease: [0.19, 1, 0.22, 1] }}
           className="relative"
         >
-          {/* Outer frame accents */}
-          <div className="absolute -top-px -left-px w-8 h-[1px] bg-amber" />
-          <div className="absolute -top-px -left-px w-[1px] h-8 bg-amber" />
-          <div className="absolute -bottom-px -right-px w-8 h-[1px] bg-amber" />
-          <div className="absolute -bottom-px -right-px w-[1px] h-8 bg-amber" />
+          {/* Corner accents */}
+          <div className="absolute -top-px -left-px w-8 h-[1px] bg-amber z-20" />
+          <div className="absolute -top-px -left-px w-[1px] h-8 bg-amber z-20" />
+          <div className="absolute -bottom-px -right-px w-8 h-[1px] bg-amber z-20" />
+          <div className="absolute -bottom-px -right-px w-[1px] h-8 bg-amber z-20" />
 
-          <div
-            className="relative p-6 sm:p-10 lg:p-12"
-            style={{
-              background: "rgba(25, 26, 26, 0.6)",
-              backdropFilter: "blur(40px)",
-              WebkitBackdropFilter: "blur(40px)",
-              border: "1px solid rgba(212, 175, 55, 0.15)",
-            }}
-          >
-            {/* Panel header bar */}
-            <div
-              className="flex items-center justify-between pb-6 mb-8"
-              style={{ borderBottom: "1px solid rgba(72, 72, 72, 0.4)" }}
-            >
-              <div className="flex items-center gap-2.5">
-                <Monitor size={14} strokeWidth={1.5} className="text-amber" />
-                <span className="text-[10px] font-medium tracking-[0.2em] uppercase text-text-muted">
-                  Axiom Dashboard · Live
+          <div className="relative p-6 sm:p-10 bg-[#121212]/90 backdrop-blur-xl border border-white/10 shadow-2xl">
+            {/* Console Header Bar */}
+            <div className="flex flex-wrap items-center justify-between pb-6 mb-8 border-b border-white/10 gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-2.5 h-2.5 bg-amber rounded-none animate-pulse" />
+                <span className="font-mono text-[11px] font-semibold tracking-[0.2em] uppercase text-text-primary">
+                  AXIOM ENGINE · STATUS: ONLINE
                 </span>
               </div>
-              <div className="flex items-center gap-2">
-                <Thermometer size={12} strokeWidth={1.5} className="text-text-muted" />
-                <span className="text-[10px] font-medium tabular-nums text-text-muted">
-                  18°C
-                </span>
-                <span className="text-[9px] tracking-[0.1em] uppercase text-text-muted/40 ml-0.5">
-                  MOCK
-                </span>
+
+              {/* Live Telemetry Chips */}
+              <div className="flex flex-wrap items-center gap-4 font-mono text-[10px] tracking-[0.12em] text-text-muted">
+                <div className="flex items-center gap-1.5 px-2.5 py-1 bg-surface-low border border-white/5">
+                  <Thermometer size={12} className="text-amber" />
+                  <span className="text-text-primary font-semibold">{temperature}°C</span>
+                  <span className="text-text-muted/60">AMBIENT</span>
+                </div>
+                <div className="flex items-center gap-1.5 px-2.5 py-1 bg-surface-low border border-white/5">
+                  <Radio size={12} className="text-amber" />
+                  <span>20 RFID TAGS</span>
+                </div>
+                <div className="flex items-center gap-1.5 px-2.5 py-1 bg-surface-low border border-white/5">
+                  <ShieldCheck size={12} className="text-amber" />
+                  <span>NON-REPEAT: 3D ({recentCount} LOCKED)</span>
+                </div>
               </div>
             </div>
 
-            {/* Controls */}
-            <div className="flex flex-col sm:flex-row items-start sm:items-end gap-6 sm:gap-8 mb-10">
-              {/* Formality selector */}
-              <div className="flex flex-col gap-2 w-full sm:w-auto">
-                <label className="text-[10px] font-medium tracking-[0.2em] uppercase text-text-muted">
-                  Formality
+            {/* Interactive Controls Bar */}
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-end mb-8">
+              {/* Formality Selector */}
+              <div className="md:col-span-4 flex flex-col gap-2">
+                <label className="font-mono text-[10px] font-medium tracking-[0.2em] uppercase text-text-muted">
+                  PROTOCOL / FORMALITY
                 </label>
                 <div className="relative">
                   <button
@@ -190,109 +229,225 @@ export default function CommandCenter() {
                       e.stopPropagation();
                       setDropdownOpen(!dropdownOpen);
                     }}
-                    className="w-full sm:w-56 flex items-center justify-between px-4 py-3 bg-surface-high text-sm text-text-primary transition-colors duration-200 hover:bg-surface-highest"
-                    style={{ border: "1px solid var(--outline)" }}
+                    className="w-full flex items-center justify-between px-4 py-3 bg-surface-high text-xs font-mono tracking-[0.1em] uppercase text-text-primary border border-white/10 hover:border-amber/40 transition-colors"
                   >
-                    <span className="tracking-[0.06em] uppercase text-xs">
-                      {formality}
-                    </span>
+                    <span>[{formality}]</span>
                     <ChevronDown
                       size={14}
-                      strokeWidth={1.5}
-                      className={`text-text-muted transition-transform duration-200 ${
+                      className={`text-amber transition-transform duration-200 ${
                         dropdownOpen ? "rotate-180" : ""
                       }`}
                     />
                   </button>
-                  {dropdownOpen && (
-                    <div
-                      className="absolute top-full left-0 w-full mt-1 z-40 bg-surface-highest"
-                      style={{ border: "1px solid var(--outline)" }}
-                    >
-                      {FORMALITY_OPTIONS.map((opt) => (
-                        <button
-                          key={opt}
-                          onClick={() => {
-                            setFormality(opt);
-                            setDropdownOpen(false);
-                          }}
-                          className={`w-full text-left px-4 py-2.5 text-xs tracking-[0.06em] uppercase transition-colors duration-150 ${
-                            formality === opt
-                              ? "text-amber bg-surface-bright"
-                              : "text-text-secondary hover:text-text-primary hover:bg-surface-high"
-                          }`}
-                        >
-                          {opt}
-                        </button>
-                      ))}
-                    </div>
-                  )}
+
+                  <AnimatePresence>
+                    {dropdownOpen && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -4 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -4 }}
+                        className="absolute top-full left-0 w-full mt-1 z-50 bg-[#161616] border border-amber/30 shadow-2xl overflow-hidden"
+                      >
+                        {FORMALITY_OPTIONS.map((opt) => (
+                          <button
+                            key={opt}
+                            onClick={() => {
+                              setFormality(opt);
+                              setDropdownOpen(false);
+                            }}
+                            className={`w-full text-left px-4 py-3 font-mono text-xs tracking-[0.12em] uppercase transition-colors ${
+                              formality === opt
+                                ? "bg-amber text-background font-semibold"
+                                : "text-text-secondary hover:text-text-primary hover:bg-surface-highest"
+                            }`}
+                          >
+                            [{opt}]
+                          </button>
+                        ))}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
               </div>
 
-              {/* Action buttons */}
-              <div className="flex gap-3 w-full sm:w-auto">
+              {/* Ambient Chamber Temperature Adjustment */}
+              <div className="md:col-span-4 flex flex-col gap-2">
+                <div className="flex items-center justify-between font-mono text-[10px] tracking-[0.15em] text-text-muted uppercase">
+                  <span>CLIMATE THERMAL REG</span>
+                  <span className="text-amber">{temperature}°C</span>
+                </div>
+                <div className="flex items-center gap-3 h-[46px] px-4 bg-surface-high border border-white/10">
+                  <Thermometer size={14} className="text-amber shrink-0" />
+                  <input
+                    type="range"
+                    min={4}
+                    max={34}
+                    step={1}
+                    value={temperature}
+                    onChange={(e) => setTemperature(parseInt(e.target.value))}
+                    className="w-full accent-amber cursor-pointer"
+                  />
+                  <span className="font-mono text-xs text-text-primary shrink-0 w-8 text-right">
+                    {temperature}°C
+                  </span>
+                </div>
+              </div>
+
+              {/* Action Buttons: Generate & Reset */}
+              <div className="md:col-span-4 flex gap-3">
                 <button
                   id="generate-btn"
                   onClick={generate}
                   disabled={isScanning}
-                  className="flex-1 sm:flex-none flex items-center justify-center gap-2.5 px-8 py-3 bg-amber text-background text-xs font-semibold tracking-[0.12em] uppercase transition-all duration-200 hover:bg-amber-dim disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="flex-1 flex items-center justify-center gap-2.5 px-6 py-3.5 bg-amber text-background font-mono text-xs font-bold tracking-[0.16em] uppercase transition-all duration-200 hover:bg-amber-dim disabled:opacity-50 shadow-lg shadow-amber/10"
                 >
                   {isScanning ? (
-                    <ScanLine size={14} strokeWidth={1.5} className="animate-pulse" />
+                    <ScanLine size={15} className="animate-spin" />
                   ) : (
-                    <Zap size={14} strokeWidth={1.5} />
+                    <Zap size={15} />
                   )}
-                  {isScanning ? "Scanning" : "Generate"}
+                  {isScanning ? "SCANNING..." : "GENERATE"}
                 </button>
+
                 {hasGenerated && (
                   <button
                     id="clear-btn"
                     onClick={clearHistory}
-                    className="flex items-center gap-2 px-4 py-3 text-xs tracking-[0.08em] uppercase text-text-muted transition-colors duration-200 hover:text-amber"
-                    style={{ border: "1px solid var(--outline)" }}
+                    title="Clear 3-day history log"
+                    className="flex items-center justify-center px-4 py-3.5 border border-white/10 text-text-muted hover:text-amber hover:border-amber/40 transition-colors"
                   >
-                    <RotateCcw size={12} strokeWidth={1.5} />
-                    Reset
+                    <RotateCcw size={14} />
                   </button>
                 )}
               </div>
             </div>
 
-            {/* Error */}
+            {/* Error banner */}
             {error && (
-              <div
-                className="px-5 py-3 bg-surface-high text-error text-xs tracking-wide mb-8"
-                style={{ borderLeft: "2px solid var(--error)" }}
-              >
+              <div className="p-4 mb-6 bg-red-950/40 border border-red-500/40 text-red-300 font-mono text-xs">
                 {error}
               </div>
             )}
 
-            {/* Outfit Grid */}
+            {/* Generated Outfit Output Section */}
             {outfit ? (
-              <div className="flex flex-col gap-4">
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="w-8 h-[1px] bg-amber" />
-                  <span className="text-[10px] font-medium tracking-[0.2em] uppercase text-text-muted">
-                    Today&apos;s Outfit
-                  </span>
+              <div className="flex flex-col gap-6 pt-4">
+                {/* Result header & Action Bar */}
+                <div className="flex flex-wrap items-center justify-between gap-4 p-4 bg-surface-low border border-white/5 font-mono text-[10px] tracking-[0.15em] uppercase">
+                  <div className="flex items-center gap-3">
+                    <span className="w-2 h-2 bg-green-500 rounded-full" />
+                    <span className="text-text-primary font-semibold">
+                      OUTFIT MATRIX RESOLVED
+                    </span>
+                    {latency !== null && (
+                      <span className="text-amber">
+                        (LATENCY: {latency}ms)
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={handleLogWear}
+                      disabled={loggedToday}
+                      className={`flex items-center gap-2 px-4 py-1.5 text-xs font-mono uppercase tracking-[0.1em] transition-all ${
+                        loggedToday
+                          ? "bg-green-950/60 border border-green-500 text-green-400"
+                          : "bg-surface-mid border border-amber/40 text-amber hover:bg-amber hover:text-black"
+                      }`}
+                    >
+                      {loggedToday ? (
+                        <>
+                          <CheckCircle2 size={13} />
+                          LOGGED TO ARCHIVE
+                        </>
+                      ) : (
+                        <>
+                          <Clock size={13} />
+                          LOG AS WORN TODAY
+                        </>
+                      )}
+                    </button>
+                  </div>
                 </div>
-                <WardrobeGrid outfit={outfit} outfitKey={outfitKey} />
+
+                {/* Two-column: AI MODEL PREVIEW (left) + RECOMMENDED LOOK (right) */}
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 items-start">
+                  {/* Left — AI MODEL PREVIEW */}
+                  <div className="min-h-[420px]">
+                    <ModelPreviewPanel outfit={outfit} outfitKey={outfitKey} />
+                  </div>
+
+                  {/* Right — RECOMMENDED LOOK */}
+                  <div className="flex flex-col gap-3">
+                    <div className="font-mono text-[10px] tracking-[0.2em] uppercase text-text-muted flex items-center gap-2">
+                      <span className="w-4 h-[1px] bg-amber inline-block" />
+                      RECOMMENDED LOOK
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {/* Top */}
+                      <div className="p-4 bg-surface-mid border border-white/8 flex flex-col gap-2 hover:border-amber/30 transition-colors">
+                        <div className="font-mono text-[9px] text-amber uppercase tracking-[0.15em]">TOP</div>
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 shrink-0 border border-white/10" style={{ backgroundColor: outfit.top.color }} />
+                          <div className="min-w-0">
+                            <div className="text-sm font-semibold text-text-primary truncate">{outfit.top.name}</div>
+                            <div className="font-mono text-[9px] text-text-muted truncate">{outfit.top.formality}</div>
+                          </div>
+                        </div>
+                      </div>
+                      {/* Bottom */}
+                      <div className="p-4 bg-surface-mid border border-white/8 flex flex-col gap-2 hover:border-amber/30 transition-colors">
+                        <div className="font-mono text-[9px] text-amber uppercase tracking-[0.15em]">BOTTOM</div>
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 shrink-0 border border-white/10" style={{ backgroundColor: outfit.bottom.color }} />
+                          <div className="min-w-0">
+                            <div className="text-sm font-semibold text-text-primary truncate">{outfit.bottom.name}</div>
+                            <div className="font-mono text-[9px] text-text-muted truncate">{outfit.bottom.formality}</div>
+                          </div>
+                        </div>
+                      </div>
+                      {/* Footwear */}
+                      <div className="p-4 bg-surface-mid border border-white/8 flex flex-col gap-2 hover:border-amber/30 transition-colors">
+                        <div className="font-mono text-[9px] text-amber uppercase tracking-[0.15em]">FOOTWEAR</div>
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 shrink-0 border border-white/10" style={{ backgroundColor: outfit.shoes.color }} />
+                          <div className="min-w-0">
+                            <div className="text-sm font-semibold text-text-primary truncate">{outfit.shoes.name}</div>
+                            <div className="font-mono text-[9px] text-text-muted truncate">{outfit.shoes.formality}</div>
+                          </div>
+                        </div>
+                      </div>
+                      {/* Accessory */}
+                      <div className="p-4 bg-surface-mid border border-white/8 flex flex-col gap-2 hover:border-amber/30 transition-colors">
+                        <div className="font-mono text-[9px] text-amber uppercase tracking-[0.15em]">ACCESSORY</div>
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 shrink-0 border border-white/10" style={{ backgroundColor: outfit.accessory.color }} />
+                          <div className="min-w-0">
+                            <div className="text-sm font-semibold text-text-primary truncate">{outfit.accessory.name}</div>
+                            <div className="font-mono text-[9px] text-text-muted truncate">{outfit.accessory.formality}</div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    {/* Full detail grid below */}
+                    <WardrobeGrid outfit={outfit} outfitKey={outfitKey} />
+                  </div>
+                </div>
               </div>
             ) : (
               !error &&
               !hasGenerated && (
-                <div className="flex flex-col items-center justify-center gap-4 py-16">
-                  <div
-                    className="w-14 h-14 flex items-center justify-center"
-                    style={{ border: "1px solid var(--outline)" }}
-                  >
-                    <ScanLine size={22} strokeWidth={1} className="text-text-muted" />
+                <div className="flex flex-col items-center justify-center py-16 px-4 border border-dashed border-white/10 bg-surface-low/30">
+                  <div className="p-4 bg-surface-mid border border-white/10 mb-3">
+                    <ScanLine size={24} className="text-amber/60" />
                   </div>
-                  <p className="text-[10px] tracking-[0.12em] uppercase text-text-muted text-center max-w-xs">
-                    Select formality &amp; generate your outfit
-                  </p>
+                  <span className="font-mono text-xs tracking-[0.2em] uppercase text-text-primary mb-1">
+                    CHAMBER STANDBY · READY FOR SYNTHESIS
+                  </span>
+                  <span className="font-mono text-[10px] tracking-[0.1em] text-text-muted text-center max-w-sm">
+                    Press GENERATE to initiate the 1-second 13.56 MHz RFID laser scan across all 20 garments.
+                  </span>
                 </div>
               )
             )}

@@ -1,0 +1,54 @@
+// Prisma Schema for Axiom Smart Wardrobe (Project Ref: 11456649540610009134)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model Garment {
+  id            String    @id
+  name          String
+  type          String    // top, bottom, shoes, accessory
+  category      String
+  color         String
+  material      String
+  formality     String    // casual, smart-casual, formal
+  weatherWeight String    @default("medium") // light, medium, heavy, all
+  minTemp       Int       @default(10)
+  maxTemp       Int       @default(30)
+  lastWorn      DateTime?
+  rfid          String    @unique
+  status        String    @default("CHAMBER 01") // CHAMBER 01, IN WASH, STORED, READY
+  season        String    @default("all-season")
+  wearCount     Int       @default(0)
+  chamberSlot   String    @default("Bay A-01")
+  careProtocol  String    @default("Standard Clean")
+  tags          String    // JSON stringified tags array
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model OutfitLog {
+  id          String   @id @default(cuid())
+  topId       String
+  bottomId    String
+  shoesId     String
+  accessoryId String
+  formality   String
+  temperature Int
+  season      String   @default("all-season")
+  wornAt      DateTime @default(now())
+  notes       String?
+}
+
+model ChamberTelemetry {
+  id             String   @id @default(cuid())
+  temperature    Float    @default(18.0)
+  humidity       Float    @default(42.0)
+  activeRfidTags Int      @default(20)
+  status         String   @default("ACTIVE")
+  timestamp      DateTime @default(now())
+}
