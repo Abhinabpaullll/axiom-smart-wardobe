@@ -8,7 +8,7 @@ The project aims to bridge the gap between a physical wardrobe and a digital int
 
 ---
 
-## ✨ Key Features
+##  Key Features
 
 - **Digital Wardrobe:** Organize garments by category, color, formality, and other relevant attributes.
 - **RFID/NFC Integration Concept:** Demonstrates how physical garments can be identified and associated with digital inventory records.
@@ -19,7 +19,7 @@ The project aims to bridge the gap between a physical wardrobe and a digital int
 - **Virtual Try-On (VTO):** Provides an interactive outfit-visualization workflow using the project's computer-vision integration.
 - **Interactive Interface:** A dark, industrial-inspired interface featuring restrained metallic-gold accents, technical visualizations, and motion effects.
 
-## 🖥️ Application Modules
+##  Application Modules
 
 | Module | Description |
 |---|---|
@@ -28,7 +28,7 @@ The project aims to bridge the gap between a physical wardrobe and a digital int
 | Archive | Historical wardrobe usage and wear timeline |
 | Style Lab | Outfit composition, compatibility exploration, and virtual try-on |
 
-## 🏗️ System Architecture
+##  System Architecture
 
 Axiom follows a modular architecture that connects wardrobe data, contextual processing, recommendation logic, and user-facing visualization.
 
@@ -63,7 +63,7 @@ Axiom follows a modular architecture that connects wardrobe data, contextual pro
 
 The diagram represents the intended workflow. Physical RFID hardware integration and the maturity of individual computer-vision features depend on the current implementation.
 
-## 🛠️ Technology Stack
+##  Technology Stack
 
 | Technology | Purpose |
 |---|---|
@@ -79,7 +79,7 @@ The diagram represents the intended workflow. Physical RFID hardware integration
 
 *The final technology list should reflect the packages and services actually used in the repository.*
 
-## 🚀 Getting Started
+##  GET GOING
 
 ### Prerequisites
 
