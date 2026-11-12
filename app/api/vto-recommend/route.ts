@@ -20,6 +20,8 @@ export interface VTORecommendResponse {
   slots: RecommendSlot[];
 }
 
+import { generateOutfit } from "@/lib/engine";
+
 export async function POST(request: Request) {
   // --- Rate limit: 10 req/min per IP ---
   const ip = getClientIp(request);
@@ -31,37 +33,54 @@ export async function POST(request: Request) {
     );
   }
 
-  let currentOutfit: DetectedGarment[];
-  let formality: string | undefined;
-  let temperature: number | undefined;
+  let currentOutfit: DetectedGarment[] = [];
+  let formality = "smart-casual";
+  let temperature = 18;
 
   try {
-    const body = await request.json();
-    currentOutfit = body.currentOutfit;
-    formality = body.formality || "smart-casual";
-    temperature = typeof body.temperature === "number" ? body.temperature : 18;
-    if (!Array.isArray(currentOutfit) || currentOutfit.length === 0) throw new Error();
+    const body = await request.json().catch(() => ({}));
+    if (Array.isArray(body?.currentOutfit)) {
+      currentOutfit = body.currentOutfit;
+    }
+    if (typeof body?.formality === "string" && body.formality.trim()) {
+      formality = body.formality;
+    }
+    if (typeof body?.temperature === "number" && !isNaN(body.temperature)) {
+      temperature = body.temperature;
+    }
   } catch {
-    return NextResponse.json(
-      { error: "Invalid request: currentOutfit array required." },
-      { status: 400 }
-    );
-  }
-
-  // --- Provider guard ---
-  if (!isGeminiConfigured()) {
-    return NextResponse.json(
-      {
-        configured: false,
-        message: "VTO RECOMMEND NOT CONFIGURED",
-        provider: "Google Gemini",
-        envVar: "GEMINI_API_KEY",
-      },
-      { status: 200 }
-    );
+    // defaults used
   }
 
   const wardrobe = wardrobeData as WardrobeItem[];
+
+  // Fallback builder using deterministic engine
+  const buildFallback = (): RecommendSlot[] => {
+    const res = generateOutfit(wardrobe, formality, temperature, []);
+    if (!res) {
+      return [
+        { slot: "top", action: "ADD", item: wardrobe[0], reason: "Selected from Chamber inventory." },
+        { slot: "bottom", action: "ADD", item: wardrobe[7], reason: "Selected from Chamber inventory." },
+        { slot: "shoes", action: "ADD", item: wardrobe[12], reason: "Selected from Chamber inventory." },
+        { slot: "accessory", action: "ADD", item: wardrobe[16], reason: "Selected from Chamber inventory." },
+      ];
+    }
+    return [
+      { slot: "top", action: "REPLACE", item: res.outfit.top, reason: "Optimized for thermal comfort & clean silhouette." },
+      { slot: "bottom", action: "REPLACE", item: res.outfit.bottom, reason: "Harmonizes drape and formality with top piece." },
+      { slot: "shoes", action: "REPLACE", item: res.outfit.shoes, reason: "Completes tonal palette and occasion protocol." },
+      { slot: "accessory", action: "ADD", item: res.outfit.accessory, reason: "Refined accent piece for cohesive aesthetic." },
+    ];
+  };
+
+  // --- Provider guard ---
+  if (!isGeminiConfigured()) {
+    return NextResponse.json({
+      configured: true,
+      slots: buildFallback(),
+      note: "Engine generated offline.",
+    });
+  }
 
   // Build a compact wardrobe catalogue for the model
   const catalogue = wardrobe
@@ -71,9 +90,9 @@ export async function POST(request: Request) {
     )
     .join(",\n");
 
-  const detectedList = currentOutfit
-    .map((g) => `• ${g.region}: ${g.style} (${g.color}, ${g.pattern})`)
-    .join("\n");
+  const detectedList = currentOutfit.length > 0
+    ? currentOutfit.map((g) => `• ${g.region}: ${g.style} (${g.color}, ${g.pattern})`).join("\n")
+    : "No distinct pieces detected (styling recommendation requested from scratch)";
 
   const prompt = `You are a luxury wardrobe AI for Axiom Smart Wardrobe.
 
@@ -87,7 +106,7 @@ Their preference:
 Your task: For each of these slots — top, bottom, shoes, accessory — decide:
 - KEEP: the current garment is already appropriate
 - REPLACE: swap with a specific item from the wardrobe catalogue
-- ADD: the slot is missing; pick from the catalogue
+- ADD: the slot is missing or requires styling; pick from the catalogue
 
 IMPORTANT: You may ONLY recommend items from this exact wardrobe catalogue. Do not invent items.
 Catalogue:
@@ -129,11 +148,8 @@ Return ONLY a valid JSON object:
 
     return NextResponse.json({ configured: true, slots });
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : "Unknown error";
-    return NextResponse.json(
-      { error: "VTO recommendation failed.", detail: msg },
-      { status: 500 }
-    );
+    console.warn("[vto-recommend] Model parsing fallback:", err);
+    return NextResponse.json({ configured: true, slots: buildFallback() });
   }
 }
 

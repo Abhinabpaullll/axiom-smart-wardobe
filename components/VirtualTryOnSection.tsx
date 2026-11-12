@@ -43,12 +43,12 @@ export default function VirtualTryOnSection() {
               </p>
             </div>
 
-            {/* CTA to /lab */}
+            {/* CTA to /lab?mode=vto */}
             <Link
-              href="/lab"
+              href="/lab?mode=vto"
               className="group inline-flex items-center gap-2.5 px-6 py-3.5 bg-black border border-amber/50 hover:border-amber text-[#F5F5F7] hover:text-amber font-mono text-xs tracking-[0.16em] uppercase transition-all duration-200 hover:bg-amber/10 shrink-0 self-start lg:self-end"
             >
-              <span>ENTER LAB</span>
+              <span>ENTER VTO LAB</span>
               <ArrowRight size={13} className="text-amber group-hover:translate-x-1 transition-transform" />
             </Link>
           </div>

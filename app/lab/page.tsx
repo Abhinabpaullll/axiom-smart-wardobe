@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { motion } from "framer-motion";
 import {
   Bookmark,
@@ -23,6 +23,16 @@ type LabMode = "CANVAS" | "VTO";
 
 export default function LabPage() {
   const [mode, setMode] = useState<LabMode>("CANVAS");
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const m = params.get("mode") || params.get("tab");
+      if (m && m.toLowerCase() === "vto") {
+        setMode("VTO");
+      }
+    }
+  }, []);
 
   // ── Canvas Builder State ────────────────────────────────────────────────
   const [selectedTop, setSelectedTop] = useState<WardrobeItem>(wardrobeList[0]);
