@@ -219,7 +219,7 @@ export default function ModelPreviewPanel({ outfit, outfitKey }: ModelPreviewPan
                     EDITORIAL DIRECTION
                   </div>
                   <p className="text-xs text-text-secondary leading-relaxed italic">
-                    "{state.preview}"
+                    &ldquo;{state.preview}&rdquo;
                   </p>
                 </div>
               </motion.div>

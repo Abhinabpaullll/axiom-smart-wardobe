@@ -22,7 +22,6 @@ import {
   ScanLine,
   AlertTriangle,
   CheckCircle2,
-  Edit3,
   Shirt,
   Footprints,
   Watch,
@@ -31,7 +30,6 @@ import {
   ShieldAlert,
   RefreshCw,
   Eye,
-  Info,
   Columns2,
   Bookmark,
   Sparkles,
@@ -39,7 +37,6 @@ import {
   Check,
   Radio,
 } from "lucide-react";
-import Image from "next/image";
 import type { DetectedGarment, AnalyzeOutfitResponse } from "@/app/api/analyze-outfit/route";
 import type { RecommendSlot } from "@/app/api/vto-recommend/route";
 import type { WardrobeItem } from "@/lib/engine";
